@@ -1,0 +1,1202 @@
+<!DOCTYPE html>
+/*
+// Developed By: Isaac Grubb
+// This the property of isaac grubb
+*/
+
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<title>three-vrm example</title>
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"
+		/>
+		<style>
+			body {
+				margin: 0;
+			}
+			canvas {
+				display: block;
+			}
+			#motion {
+				position: absolute;
+/*
+				bottom: 0;
+				right: 0;
+*/
+                top: 0;
+				left: 0;
+				color: white;
+			}
+			#webacamCanvas { transform: rotateY(180deg); }
+		</style>
+	</head>
+
+	<body>
+		<div id="vrm"></div>
+		<div id="motion">
+			<div id="loading-indicator">PoseNet model is loading.</div>
+			<canvas id="webacamCanvas" width="720" height="576"></canvas>
+			<video id="video" width="720" height="576" style="display:none;" autoplay playsinline>Video stream not
+			available.</video>
+		</div>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/16.3.5/Tween.min.js"></script>
+		<script src="https://unpkg.com/three@0.106.2/build/three.js"></script>
+		<script src="https://unpkg.com/three@0.106.2/examples/js/loaders/GLTFLoader.js"></script>
+		<script src="https://unpkg.com/three@0.106.2/examples/js/controls/OrbitControls.js"></script> 
+        <script src="https://threejs.org/examples/jsm/loaders/EXRLoader.js"></script>
+        <script src="https://unpkg.com/three@0.106.2/examples/js/loaders/RGBELoader.js"></script>
+        <script src="resources/threejs/r105/js/utils/SkeletonUtils.js"></script>
+		<script src="./three-vrm.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+		<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/posenet"></script>
+		<script>
+            
+            //This is a piece of code which is in development and contains code which allows for further development. I have commented out alot of this code as not what i was trying to do with this exhibition,but dont want to lose it. 
+
+            // posenet implimentation
+			let poseStore = {};
+			const webacamCanvas = document.getElementById("webacamCanvas");
+			const webcamCtx = webacamCanvas.getContext("2d");
+			const video = document.getElementById('video');
+			// display camera movie Canvas detected parts
+               
+        // reading and fliping the webcam so its correct oriantation
+			function detectAndDraw(net) {
+//				webcamCtx.drawImage(video, 0, 0, 720, 576);
+
+				net.estimateSinglePose(video, {
+					flipHorizontal: false
+				})
+				.then(function(pose) {
+					drawKeypoints(pose);
+				});
+			}
+			// draw detected parts by PoseNet
+			function drawKeypoints(pose) {
+                
+               
+				pose.keypoints.forEach(keypoint => {
+					if (keypoint.score > 0.2) {
+
+                        
+						poseStore[keypoint.part] = {
+							x: 1080/2 - keypoint.position.x,
+							y: 720/2 - keypoint.position.y
+                            
+//                            LineLoop( {
+//                                x: 480/2 - keypoint.position.x,
+//							    y: 320/2 - keypoint.position.y
+//                            })
+						};
+                        
+//                        console.log(keypoint.position.x);
+                        
+//                        LineLoop( x: 480/2 - keypoint.position.x,
+//							y: 320/2 - keypoint.position.y)
+
+						webcamCtx.beginPath();
+//						webcamCtx.fillStyle = "rgb(0, 0, 0)"; // 黄色
+//                        webcamCtx.LineLoop(keypoint.position.x, keypoint.position.y)
+                        
+//                         for (var i = 0; i < 3; i++) {
+//                             webcamCtx.arc(
+//                             keypoint.position.x,
+//							keypoint.position.y,
+//							15,
+//							(10 * Math.PI) / 180,
+//							(80 * Math.PI) / 180,
+//							true
+//                             );
+//                         }
+//                        const material = new THREE.LineBasicMaterial( { color: 0x0000ff } );
+//                        
+//                        const points = [];
+//                        points.push( new THREE.Vector3( - 10, 0, 0 ) );
+//                        points.push( new THREE.Vector3( 0, 10, 0 ) );
+//                        points.push( new THREE.Vector3( 10, 0, 0 ) );
+//
+//                        const geometry = new THREE.BufferGeometry().setFromPoints( points );
+//                        
+//                        const line = new THREE.Line( geometry, material );
+//                        
+//                        scene.add( line );
+                        
+						webcamCtx.arc(
+							keypoint.position.x,
+							keypoint.position.y,
+							5,
+							(10 * Math.PI) / 180,
+							(80 * Math.PI) / 180,
+							true
+						);
+//						webcamCtx.fill();
+//						webcamCtx.fillText(
+//							keypoint.part,
+//							keypoint.position.x,
+//							keypoint.position.y + 10
+//						);
+					}
+				});
+                
+                
+                
+			}
+			// get camera movie
+			navigator.mediaDevices.getUserMedia({ audio: false, video: true })
+			.then(function (mediaStream) {
+				// set video tag srcObject
+				video.srcObject = mediaStream;
+				video.onloadedmetadata = function (e) {
+					video.play();
+				};
+				return posenet.load();
+			})
+			.then(function (net) {
+				var loadingIndicator = document.getElementById("loading-indicator");
+				loadingIndicator.style.display = 'none';
+				setInterval(function () { detectAndDraw(net); }, 100);
+			});
+			//===================================
+
+			// renderer
+            
+            var renderer = new THREE.WebGLRenderer({
+                  antialias: true,alpha: true
+                });
+            renderer.setSize( window.innerWidth, window.innerHeight );
+			renderer.setPixelRatio( window.devicePixelRatio );
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ReinhardToneMapping;
+            renderer.toneMappingExposure = 1.3;
+            renderer.setClearColor(0x404040);
+            renderer.outputEncoding = THREE.sRGBEncoding;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 0.8;
+            
+                var canvas = renderer.domElement;
+            
+                document.body.appendChild(canvas);
+
+            
+			document.getElementById('vrm').appendChild( renderer.domElement );
+
+			// camera
+			const camera = new THREE.PerspectiveCamera( 30.0, 
+                                                       window.innerWidth / window.innerHeight, 
+                                                       0.1, 
+                                                       1000.0 );
+			camera.position.set( 0.0, 0.0, 16.0 );
+            
+
+			// camera controls
+			const controls = new THREE.OrbitControls( camera, renderer.domElement );
+			controls.screenSpacePanning = true;
+			controls.target.set( 0.0, 1.0, 0.0 );
+			controls.update();
+                 
+                        // moving the camera backwards and forwards and up and down helping create that sence of depth  
+            var tween = new TWEEN.Tween(camera.position)
+                          .to( { x:0.0, y:1.0, z:18.25 }, 26000)
+                          .yoyo(true)
+                          .repeat(Infinity)
+                          
+                          .easing(TWEEN.Easing.Cubic.InOut)
+                          .start()
+                        ;
+            
+            
+
+			// scene
+			const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x000000);
+//            scene.background = new THREE.Color(0xFFF6CC);
+            
+            let hemiLight;
+            //loding envioments but i chose not to impliment as didnt need them.
+             var loader2 = new THREE.RGBELoader();
+            loader2.load('/assets/MR_INT-003_Kitchen_Pierre.hdr', function(texture){
+//               texture.encoding = THREE.RGBEEncoding;
+                texture.mapping = THREE.EquirectangularReflectionMapping;
+//                scene.background = texture;
+                scene.enviroment = texture;
+                
+                const sphere = new THREE.mesh(
+                    new THREE.SphereGeometry(1, 50, 50),
+                    new THREE.MeshStandardMaterial()
+                );
+//                scene.add(sphere);
+                
+            })
+            
+            const listener = new THREE.AudioListener();
+            camera.add( listener );
+            
+            const sound = new THREE.Audio( listener );
+            //loading the sounds track so it is linked to the playing of the piece so it doesnt run out of time. 
+            const audioLoader = new THREE.AudioLoader();
+            audioLoader.load( 'assets/i_grubb_project_audio_file.mp3', function( buffer ) {
+                sound.setBuffer( buffer );
+                sound.setLoop( true );
+                sound.setVolume( 0.5 );
+                sound.play();
+            });
+            
+
+			// light hemi and directional light working in combination to create more realistic texture. I coloured one of the 
+			const light = new THREE.DirectionalLight( 0xFFEEB1, 0.9 );
+//            const light2 = new THREE.AmbientLight( 0xffffff, 0.1); // soft white light
+			light.position.set( 2.0, 1.0, 1.0 ).normalize();
+            light.castShadow = true; 
+//			scene.add( light );
+////            scene.add( light2 );
+//            let pLightX = 0;
+//            let pLightZ = 0;
+//            const light3 = new THREE.PointLight( 0xffffff, 1, 100, 2 );
+//            light.position.set( pLightX, 50, pLightZ );
+//            scene.add( light3 );
+//            let mesh = new THREE.Object3D();
+//                scene.add(mesh);
+//            let yRotation = 3.21; 
+//            let xPosition = -1.5;	 
+//            let zPosition = 3.1;
+            
+//            
+            
+//            hemiLight = new THREE.HemisphereLight(0xFFEEB1, 0x080820, 8);
+            hemiLight = new THREE.HemisphereLight(0xFFEEB1, 0xb60086, 6);
+            scene.add(hemiLight);
+            
+            
+            
+            let xRotation = 0;
+            let yRotation = 0; 
+            let zRotation = 0;
+            let xPosition = 0;	 
+            let zPosition = 0;
+            
+            let xflowerR = 0;
+            let zflowerR = 0;
+
+//            let mixer;
+            let flower;
+            let flower2
+            let clips;
+            let stem;
+            
+            
+            
+//            var textureLoader = new THREE.TextureLoader();
+//            var texture = textureLoader.load('/assets/eviroment.jpeg');
+//            tex.format = THREE.RGBFormat;
+			// gltf and vrm
+			let currentVrm = undefined;
+			var loader = new THREE.GLTFLoader();
+//			loader.crossOrigin = 'anonymous';
+//			loader.load(
+////
+            //loading all of the models and initiating the cloning and animation.
+            //importing the stem separatly so its not animated
+
+            loader.load('/assets/flower_stem4.glb', function(gltf){
+             const mesh2 = gltf.scene;
+                mesh2.scale.set(0.4,0.4,0.4);
+                stem = mesh2;
+                clips = gltf.animations;
+//                scene.add(mesh2);
+                
+            }, 
+                        function(xhr){
+//                
+                console.log((xhr.loaded/xhr.total * 100) + "% loaded");
+            }, function(error){
+                console.log('an error occurred')
+            })
+            
+            loader.load('/assets/flower_animate_final2.glb', function(gltf){
+             const mesh3 = gltf.scene;
+                mesh3.scale.set(0.4,0.4,0.4);
+                flower3 = mesh3;
+                clips1 = gltf.animations;
+                console.log((flower2) + 'mesh3')
+//                scene.add(mesh2);
+                
+            }, 
+                        function(xhr){
+//                
+                console.log((xhr.loaded/xhr.total * 100) + "% loaded");
+            }, function(error){
+                console.log('an error occurred')
+            })
+            
+            loader.load('/assets/flower_animate_final1.glb', function(gltf){
+             const mesh4 = gltf.scene;
+                mesh4.scale.set(0.4,0.4,0.4);
+//                flower3 = mesh4;
+                flower2 = mesh4;
+                clips2 = gltf.animations;
+                console.log((flower3) + 'mesh4')
+//                scene.add(mesh2);
+                
+            }, 
+                        function(xhr){
+//                
+                console.log((xhr.loaded/xhr.total * 100) + "% loaded");
+            }, function(error){
+                console.log('an error occurred')
+            })
+            
+            loader.load('/assets/flower_animate6.glb', handle_load, function(xhr){
+//                
+                console.log((xhr.loaded/xhr.total * 100) + "% loaded");
+            }, function(error){
+                console.log('an error occurred')
+            })
+            
+                       
+//            var mesh;
+            let model, c, size;
+            
+
+			// helpers axes and grid to help orientation
+//			const gridHelper = new THREE.GridHelper( 10, 10 );
+////			scene.add( gridHelper );
+//
+//			const axesHelper = new THREE.AxesHelper( 5 );
+//			scene.add( axesHelper );
+                      
+            
+            function handle_load(gltf){
+                 
+//                const material = new THREE.MeshBasicMaterial( { color: 0xffff00 } );
+                 
+               const mesh = gltf.scene;
+                
+                // scaling down the size of the mesh
+                
+                mesh.scale.set(0.4,0.4,0.4);             
+               
+//                var newMaterial = new THREE.MeshPhongMaterial({color: 0xef5090});
+//                var material2 = new THREE.MeshLambertMaterial();
+////                
+//                mesh.traverse((o) => {
+//                  if (o.isMesh) o.material = newMaterial;
+//                });
+//                 var newMaterial = new THREE.PointMaterial({
+//                     
+//                     size:0.05
+//                     });
+                
+//               mesh.receiveShadow = true;
+                
+                
+//                object.traverse((node) => {
+//                        if (node.isMesh) node.material.envMap = texture;
+//                      });
+
+//                mesh.material.vertexColors = true;
+//                mesh.material.flatShading = false;
+//                mesh.traverse((o) => {
+//                  if (o.isMesh) o.material = newMaterial;
+//                });
+//                
+//                mesh.traverse((node) => {
+//                  if (!node.isMesh) return;
+//                  node.material.wireframe = false;
+//                  node.material.vertexColors = true;
+//                  node.material.flatShading = false;
+//                    node.material.receiveShadow = true;
+//                    node.material = material;
+//                });
+
+                
+                console.log((mesh) + ' mesh');
+           
+//                var materialObj = new THREE.MeshBasicMaterial( { color: "#9E4300", skinning: true} );
+//                var newMaterial = new THREE.MeshLambertMaterial({color: 0xFF0000 });
+//                        flowerClone.traverse((o) => {
+//                  if (o.isMesh) o.material = newMaterial;
+//                })
+                
+//                mesh.traverse(o => {
+//                      if (o.isMesh) {
+////                        o.castShadow = true;
+////                        o.receiveShadow = true;
+//                          o.mesh.material = material
+//                      }
+//                    });
+                
+                const box = new THREE.Box3( ).setFromObject( gltf.scene );		 
+	            const boxHelper = new THREE.Box3Helper( box, 0xffff00 );
+//                scene.add( boxHelper );
+
+                c = box.getCenter( new THREE.Vector3( ) );
+                size = box.getSize( new THREE.Vector3( ) );
+
+//                mesh.castShadow
+                
+//                scene.add(mesh);
+//                flower = mesh;
+                flower = mesh;
+                
+//                move( gltf );
+//
+//                scene.add(mesh2);
+                
+//                scene.add( gltf.scene );
+
+//                model = gltf;
+         
+                clips = gltf.animations;
+                
+//                const clip = THREE.AnimationClip.findByName(clips, 'flowerOpen');
+//                const action = mixer.clipAction(clip);
+//                action.play();
+//                clips.setLoop(THREE.LoopOnce);
+                
+                    
+                    
+//                });
+                
+                
+            }
+                       
+            //lerp function making the movemnt of the flowers smooth and not just jump to new positions
+            function lerp (start, end, t) {
+                  return start * (1 - t) + end * t;
+                }
+
+                // Examples:
+//                lerp(0, 100, 0.5); // 50
+//                lerp(20, 80, 0); // 20
+//                lerp(30, 5, 1); // 5
+//                lerp(-1, 1, 0.5); // 0
+//                lerp(0.5, 1, 0.5); // 0.75
+            
+            
+            // creating a mesh which changes loation every second and then cloning a model to its loation.
+            const planeMesh = new THREE.Mesh(
+            
+                new THREE.PlaneGeometry(20,20),
+                new THREE.MeshBasicMaterial({
+                    side: THREE.DoubleSide,
+                    visible: false
+
+                })
+            );
+
+
+            planeMesh.rotateX(-Math.PI / 2);
+            scene.add(planeMesh);
+            
+            planeMesh.name = 'ground';
+            
+            const grid = new THREE.GridHelper(20, 20);
+//            scene.add(grid);
+            
+            const highlightMesh = new THREE.Mesh(
+            
+                new THREE.PlaneGeometry(1, 1),
+                new THREE.MeshBasicMaterial({
+                    side: THREE.DoubleSide,
+                    transparent: true
+
+                })
+            );
+
+            highlightMesh.rotateX(-Math.PI / 2);
+            highlightMesh.position.set(0.5,0,0.5);
+//            scene.add(highlightMesh);
+            
+            const highlightMesh2 = new THREE.Mesh(
+            
+                new THREE.PlaneGeometry(1, 1),
+                new THREE.MeshBasicMaterial({
+                    side: THREE.DoubleSide,
+                    transparent: true
+
+                })
+            );
+
+            highlightMesh2.rotateX(-Math.PI / 2);
+            highlightMesh2.position.set(0.5,0,0.5);
+//            scene.add(highlightMesh2);
+            
+             const highlightMesh3 = new THREE.Mesh(
+            
+                new THREE.PlaneGeometry(1, 1),
+                new THREE.MeshBasicMaterial({
+                    side: THREE.DoubleSide,
+                    transparent: true
+
+                })
+            );
+
+            highlightMesh3.rotateX(-Math.PI / 2);
+            highlightMesh3.position.set(0.5,0,0.5);
+//            scene.add(highlightMesh2);
+            
+            
+            const mousePosition = new THREE.Vector2();
+            const raycaster = new THREE.Raycaster();
+            let intersects;
+            
+
+                
+            var florPosX;
+            var florPosZ;
+            var r = 0;
+            var g = 0;
+            var x = 5;
+            
+     //setting the interval of the random new location.
+             setInterval(function (getRandomInt){   
+//    console.log(Math.floor((Math.random()*20)+1)); 
+                
+           r = Math.floor((Math.random() * 20) -10); 
+               
+            florPosX = r;
+           
+               
+ }, 1000);
+            
+            setInterval(function (getRandomInt){   
+//    console.log(Math.floor((Math.random()*20)+1)); 
+                
+           g = Math.floor((Math.random() * 20) -10); 
+               
+            
+           florPosZ = g;
+               
+ }, 1000);
+                  
+            
+            // moving the loaction of the mesh every 3 seconds. 
+            setInterval(movFun, 3000);
+            
+            function movFun() {
+                
+
+                 const highlightPos = (florPosX,0,florPosZ);
+//                highlightMesh.position.set(highlightPos.x,0,highlightPos.z);
+                        highlightMesh.position.set(florPosX,0,florPosZ);
+                        const objectExist = objects.find(function(object) {
+                    return (object.position.x === highlightMesh.position.x)
+                    && (object.position.z === highlightMesh.position.z)
+                });
+                        if(!objectExist)
+                            highlightMesh.material.color.setHex(0xFFFFFF);
+                        else
+                            highlightMesh.material.color.setHex(0xFF0000);
+                       
+
+            };
+            
+            setInterval(movFun2, 3000);
+            
+            function movFun2() {
+                
+
+                 const highlightPos2 = (florPosX,0,florPosZ);
+//                highlightMesh.position.set(highlightPos.x,0,highlightPos.z);
+                        highlightMesh2.position.set(florPosX,0,florPosZ);
+                        const objectExist = objects.find(function(object) {
+                    return (object.position.x === highlightMesh2.position.x)
+                    && (object.position.z === highlightMesh2.position.z)
+                });
+                        if(!objectExist)
+                            highlightMesh2.material.color.setHex(0xFFFFFF);
+                        else
+                            highlightMesh2.material.color.setHex(0xFF0000);
+
+            };
+            
+            setInterval(movFun3, 3000);
+            
+            function movFun3() {
+                
+                 const highlightPos3 = (florPosX,0,florPosZ);
+//                highlightMesh.position.set(highlightPos.x,0,highlightPos.z);
+                        highlightMesh3.position.set(florPosX,0,florPosZ);
+                        const objectExist = objects.find(function(object) {
+                    return (object.position.x === highlightMesh3.position.x)
+                    && (object.position.z === highlightMesh3.position.z)
+                });
+                        if(!objectExist)
+                            highlightMesh3.material.color.setHex(0xFFFFFF);
+                        else
+                            highlightMesh3.material.color.setHex(0xFF0000);
+             
+            };
+            
+            const objects = [];
+            const objects2 = [];
+            const objects3 = [];
+            const mixers = [];
+            const mixers2 = [];
+            const mixers3 = [];
+            
+                      // cloning the flower 1
+            setInterval(myFunc, 15000);
+            
+            function myFunc(){
+                const objectExist = objects.find(function(object) {
+                    return (object.position.x === highlightMesh.position.x)
+                    && (object.position.z === highlightMesh.position.z)
+                });
+                
+                if(!objectExist) {
+//                intersects.forEach(function(intersect) {
+//                    if(intersect.object.name === 'ground') {
+                    const flowerClone = flower.clone();
+                
+                    
+
+//                    flowerClone.material = new THREE.MeshLambertMaterial({color: 0xffc0cb });
+                    flowerClone.position.copy(highlightMesh.position);
+                    scene.add(flowerClone);
+                    objects.push(flowerClone);
+                    
+//                    objects.traverse((node) => {
+//                  if (!node.isMesh) return;
+//                  node.material.wireframe = false;
+//                  node.material.vertexColors = false;
+//                  node.material.flatShading = false;
+//                    node.material.receiveShadow = true;
+//                    node.material = newMaterial;
+//                });
+                    
+                    
+//                    flowerClone = new THREE.Mesh(geometry, material);
+                    
+//                    var tween = new TWEEN.Tween(flowerClone.position)
+////                          .to( { x:0.5 }, 1000)
+//                          .to( { y:2.5 }, 1000)
+////                          .to( { z:0.5 }, 1000)
+//                          .yoyo(true)
+//                          .repeat(Infinity)
+//                          .easing(TWEEN.Easing.Cubic.InOut)
+//                          .start()
+//                        ;
+                    //scaling the flower over time.
+                    var tween = new TWEEN.Tween(flowerClone.scale)
+                          .to( { x:1.25, y:1.25, z:1.25 }, 16000)
+                          .yoyo(true)
+                          .repeat(Infinity)
+                          .easing(TWEEN.Easing.Cubic.InOut)
+                          .start()
+                        ;
+                        
+                    console.log((objects) + 'objects');
+                    console.log((flowerClone) + 'flowerc');
+                    highlightMesh.material.color.setHex(0xFFFFFF);
+                        
+                    const mixer = new THREE.AnimationMixer(flowerClone);
+                    
+                const clip = THREE.AnimationClip.findByName(clips);
+                    
+                clips.forEach(function(clip){
+                    const action = mixer.clipAction(clip);
+//                  action.setLoop(THREE.LoopOnce);
+//                  action.clampWhenFinished = true;
+                  action.enable = true;
+                    action.play();
+                    
+                    mixers.push(mixer);
+                    
+                    console.log((clips) + 'clips 1');
+                    console.log((mixer) + 'mixer1');
+                    }); 
+                    
+//                    materialObj = new THREE.MeshLambertMaterial({color: 0xFF0000, skinning: false});
+////                var newMaterial = new THREE.MeshLambertMaterial({color: 0xFF0000 });
+//                        flowerClone.traverse((objects) => {
+//                  if (objects.isMesh) objects.material = materialObj
+//                })
+//                }
+//                });
+                }
+                
+                // cloning the stem 
+                if(!objectExist) {
+//                intersects.forEach(function(intersect) {
+//                    if(intersect.object.name === 'ground') {
+                    const stemClone = stem.clone();
+                    stemClone.position.copy(highlightMesh.position);
+                    scene.add(stemClone);
+//                    objects.push(stemClone);
+                    
+//                    var tween = new TWEEN.Tween(stemClone.position)
+//                          .to( { y:2.5 }, 1000)
+//                          .yoyo(true)
+//                          .repeat(Infinity)
+//                          .easing(TWEEN.Easing.Cubic.InOut)
+//                          .start()
+//                        ;
+                    var tween = new TWEEN.Tween(stemClone.scale)
+                          .to( { x:1.25, y:1.25, z:1.25 }, 16000)
+                          .yoyo(true)
+                          .repeat(Infinity)
+                          .easing(TWEEN.Easing.Cubic.InOut)
+                          .start()
+                        ;
+                    
+                    highlightMesh.material.color.setHex(0xFF0000);
+                        
+//                    const mixer = new THREE.AnimationMixer(stemClone);
+//                
+//                clips.forEach(function(clip){
+//                    const action = mixer.clipAction(clip);
+////                  action.setLoop(THREE.LoopOnce);
+////                  action.clampWhenFinished = true;
+////                  action.enable = true;
+//                    action.play();
+//                    
+//                    mixers.push(mixer);
+//                    
+//                    });    
+//                }
+//                });
+                }
+                console.log(scene.children.length);
+            };
+            
+             // cloning the flower 2
+             setInterval(myFunc2, 19000);
+            
+            function myFunc2(){
+                const objectExist2 = objects2.find(function(object2) {
+                    return (object2.position.x === highlightMesh2.position.x)
+                    && (object2.position.z === highlightMesh2.position.z)
+                });
+                
+                if(!objectExist2) {
+//                intersects.forEach(function(intersect) {
+//                    if(intersect.object.name === 'ground') {
+                    const flowerClone2 = flower2.clone();
+                
+    
+
+                
+
+//                    flowerClone.material = new THREE.MeshLambertMaterial({color: 0xffc0cb });
+                    flowerClone2.position.copy(highlightMesh2.position);
+                    scene.add(flowerClone2);
+                    objects2.push(flowerClone2);
+   
+                    var tween = new TWEEN.Tween(flowerClone2.scale)
+                          .to( { x:1.25, y:1.25, z:1.25 }, 16000)
+                          .yoyo(true)
+                          .repeat(Infinity)
+                          .easing(TWEEN.Easing.Cubic.InOut)
+                          .start()
+                        ;
+                        
+                    console.log((objects2) + 'pos');
+                    highlightMesh2.material.color.setHex(0xFFFFFF);
+                        
+                    const mixer2 = new THREE.AnimationMixer(flowerClone2);
+                    
+                const clip = THREE.AnimationClip.findByName(clips1);
+                    
+                clips1.forEach(function(clip){
+                    const action = mixer2.clipAction(clip);
+//                  action.setLoop(THREE.LoopOnce);
+//                  action.clampWhenFinished = true;
+                  action.enable = true;
+                    action.play();
+                    
+                    mixers2.push(mixer2);
+                    console.log(clips1);
+                    console.log((mixer2) + 'mixer2');
+                    }); 
+                    
+
+                }
+                
+                if(!objectExist2) {
+//                intersects.forEach(function(intersect) {
+//                    if(intersect.object.name === 'ground') {
+                    const stemClone = stem.clone();
+                    stemClone.position.copy(highlightMesh2.position);
+                    scene.add(stemClone);
+//                    objects.push(stemClone);
+                    
+//                    var tween = new TWEEN.Tween(stemClone.position)
+//                          .to( { y:2.5 }, 1000)
+//                          .yoyo(true)
+//                          .repeat(Infinity)
+//                          .easing(TWEEN.Easing.Cubic.InOut)
+//                          .start()
+//                        ;
+                    var tween = new TWEEN.Tween(stemClone.scale)
+                          .to( { x:1.25, y:1.25, z:1.25 }, 16000)
+                          .yoyo(true)
+                          .repeat(Infinity)
+                          .easing(TWEEN.Easing.Cubic.InOut)
+                          .start()
+                        ;
+                    
+                    highlightMesh2.material.color.setHex(0xFF0000);
+                        
+//                    const mixer = new THREE.AnimationMixer(stemClone);
+//                
+//                clips.forEach(function(clip){
+//                    const action = mixer.clipAction(clip);
+////                  action.setLoop(THREE.LoopOnce);
+////                  action.clampWhenFinished = true;
+////                  action.enable = true;
+//                    action.play();
+//                    
+//                    mixers.push(mixer);
+//                    
+//                    });    
+//                }
+//                });
+                }
+                
+                
+                console.log(scene.children.length);
+            };
+            
+             // cloning the flower 3
+            setInterval(myFunc3, 22000);
+            
+            function myFunc3(){
+                const objectExist3 = objects3.find(function(object3) {
+                    return (object3.position.x === highlightMesh3.position.x)
+                    && (object3.position.z === highlightMesh3.position.z)
+                });
+                
+                if(!objectExist3) {
+//                intersects.forEach(function(intersect) {
+//                    if(intersect.object.name === 'ground') {
+                    const flowerClone3 = flower3.clone();
+                
+                    
+//                    flowerClone.material = new THREE.MeshLambertMaterial({color: 0xffc0cb });
+                    flowerClone3.position.copy(highlightMesh3.position);
+                    scene.add(flowerClone3);
+                    objects3.push(flowerClone3);
+                    
+//                    objects.traverse((node) => {
+//                  if (!node.isMesh) return;
+//                  node.material.wireframe = false;
+//                  node.material.vertexColors = false;
+//                  node.material.flatShading = false;
+//                    node.material.receiveShadow = true;
+//                    node.material = newMaterial;
+//                });
+                    
+                    
+//                    flowerClone = new THREE.Mesh(geometry, material);
+                    
+//                    var tween = new TWEEN.Tween(flowerClone.position)
+////                          .to( { x:0.5 }, 1000)
+//                          .to( { y:2.5 }, 1000)
+////                          .to( { z:0.5 }, 1000)
+//                          .yoyo(true)
+//                          .repeat(Infinity)
+//                          .easing(TWEEN.Easing.Cubic.InOut)
+//                          .start()
+//                        ;
+                    var tween = new TWEEN.Tween(flowerClone3.scale)
+                          .to( { x:1.25, y:1.25, z:1.25 }, 16000)
+                          .yoyo(true)
+                          .repeat(Infinity)
+                          .easing(TWEEN.Easing.Cubic.InOut)
+                          .start()
+                        ;
+                        
+                    console.log((objects3) + 'pos');
+                    highlightMesh3.material.color.setHex(0xFFFFFF);
+                        
+                    const mixer3 = new THREE.AnimationMixer(flowerClone3);
+                    
+                const clip = THREE.AnimationClip.findByName(clips2);
+                    
+                clips2.forEach(function(clip){
+                    const action = mixer3.clipAction(clip);
+//                  action.setLoop(THREE.LoopOnce);
+//                  action.clampWhenFinished = true;
+                  action.enable = true;
+                    action.play();
+                    
+                    mixers3.push(mixer3);
+                    console.log(clips2);
+                    console.log((mixer3) + 'mixer3');
+                    }); 
+                    
+//                    materialObj = new THREE.MeshLambertMaterial({color: 0xFF0000, skinning: false});
+////                var newMaterial = new THREE.MeshLambertMaterial({color: 0xFF0000 });
+//                        flowerClone.traverse((objects) => {
+//                  if (objects.isMesh) objects.material = materialObj
+//                })
+//                }
+//                });
+                }
+                
+                if(!objectExist3) {
+//                intersects.forEach(function(intersect) {
+//                    if(intersect.object.name === 'ground') {
+                    const stemClone = stem.clone();
+                    stemClone.position.copy(highlightMesh3.position);
+                    scene.add(stemClone);
+//                    objects.push(stemClone);
+                    
+//                    var tween = new TWEEN.Tween(stemClone.position)
+//                          .to( { y:2.5 }, 1000)
+//                          .yoyo(true)
+//                          .repeat(Infinity)
+//                          .easing(TWEEN.Easing.Cubic.InOut)
+//                          .start()
+//                        ;
+                    var tween = new TWEEN.Tween(stemClone.scale)
+                          .to( { x:1.25, y:1.25, z:1.25 }, 16000)
+                          .yoyo(true)
+                          .repeat(Infinity)
+                          .easing(TWEEN.Easing.Cubic.InOut)
+                          .start()
+                        ;
+                    
+                    highlightMesh3.material.color.setHex(0xFF0000);
+                        
+//                    const mixer = new THREE.AnimationMixer(stemClone);
+//                
+//                clips.forEach(function(clip){
+//                    const action = mixer.clipAction(clip);
+////                  action.setLoop(THREE.LoopOnce);
+////                  action.clampWhenFinished = true;
+////                  action.enable = true;
+//                    action.play();
+//                    
+//                    mixers.push(mixer);
+//                    
+//                    });    
+//                }
+//                });
+                }
+                
+                
+                console.log(scene.children.length);
+            };
+            
+//            if ( objects3 > 2 ) {
+//                reloadThePage()
+//         }
+//            
+//            
+//            function reloadThePage(){
+//    document.location.reload(true);
+//} 
+            // reseting the window to start again after the length of the sound track
+            setTimeout(function() {
+               window.location.href = window.location;
+            }, 289000);
+           
+           
+			// animate
+			const clock = new THREE.Clock();
+
+            
+            const data = {
+                lerpAlpha: 0.1
+
+            }
+            
+
+			function animate() {
+                
+        
+				requestAnimationFrame( animate );
+                         
+
+				const deltaTime = clock.getDelta();
+                // animating the pose positions
+            
+				if ( currentVrm ) {
+
+					if (poseStore) {
+						if (poseStore.leftShoulder && poseStore.rightShoulder) {
+							// spine & shoulder
+							let angle = getAngleFromX(poseStore.rightShoulder, poseStore.leftShoulder);
+							if (angle !== null) {
+								angle = angle * -1;
+								angleStore.Spine = angle;
+								currentVrm.humanoid.getBoneNode( THREE.VRMSchema.HumanoidBoneName.Spine ).rotation.z = angle;
+							}
+						}
+						if (poseStore.leftEye && poseStore.rightEye) {
+							// neck $ eyes
+							let angle = getAngleFromX(poseStore.rightEye, poseStore.leftEye);
+							if (angle !== null) {
+								angle = angle * -1;
+								angleStore.Neck = angle;
+								angle = angle - (angleStore.Spine || 0);
+								currentVrm.humanoid.getBoneNode( THREE.VRMSchema.HumanoidBoneName.Neck ).rotation.z = angle;
+							}
+						}
+						if (poseStore.leftShoulder && poseStore.leftElbow) {
+							// arms
+							let angle = getAngleFromX(poseStore.leftElbow, poseStore.leftShoulder);
+							if (angle !== null) {
+								angle = Math.PI - angle;
+								angleStore.RightUpperArm = angle;
+								angle = angle - (angleStore.Spine || 0);
+								currentVrm.humanoid.getBoneNode( THREE.VRMSchema.HumanoidBoneName.RightUpperArm ).rotation.z = angle;
+							}
+						}
+						if (poseStore.leftWrist && poseStore.leftElbow) {
+							// arms
+							let angle = getAngleFromX(poseStore.leftWrist, poseStore.leftElbow);
+							if (angle !== null) {
+								angle = Math.PI - angle;
+								angleStore.RightLowerArm = angle;
+								angle = angle - (angleStore.RightUpperArm || 0);
+								currentVrm.humanoid.getBoneNode( THREE.VRMSchema.HumanoidBoneName.RightLowerArm ).rotation.z = angle;
+							}
+						}
+						if (poseStore.rightShoulder && poseStore.rightElbow) {
+							// arms
+							let angle = getAngleFromX(poseStore.rightElbow, poseStore.rightShoulder);
+							if (angle !== null) {
+								angle = angle * -1;
+								angleStore.LeftUpperArm = angle;
+								angle = angle - (angleStore.Spine || 0);
+								currentVrm.humanoid.getBoneNode( THREE.VRMSchema.HumanoidBoneName.LeftUpperArm ).rotation.z = angle;
+							}
+						}
+						if (poseStore.rightWrist && poseStore.rightElbow) {
+							// arms
+							let angle = getAngleFromX(poseStore.rightWrist, poseStore.rightElbow);
+							if (angle !== null) {
+								angle = angle * -1;
+								angleStore.LeftLowerArm = angle;
+								angle = angle - (angleStore.LeftUpperArm || 0);
+								currentVrm.humanoid.getBoneNode( THREE.VRMSchema.HumanoidBoneName.LeftLowerArm ).rotation.z = angle;
+							}
+						}
+					}
+
+					// update vrm
+//					currentVrm.update( deltaTime );
+
+				}
+                
+// applying the rotation to the flower. 
+                
+                highlightMesh.material.opacity = 1 + Math.sin(0.01);
+                highlightMesh2.material.opacity = 1 + Math.sin(0.01);
+//                objects.forEach(function(object) {
+//                    object.rotation.x = lerp(xRotation,(-(( poseStore.leftWrist.y / 780 ) * 3 - 1)),0.006);;
+//                    object.rotation.z = lerp(zRotation,(-(( poseStore.leftWrist.x / 780 ) * 4 - 1)),0.006);;
+//                    
+//                    
+//                })
+//                console.log((poseStore.leftWrist.y) + 'lposY');
+//                console.log((poseStore.leftWrist.x) + 'lposX');
+                
+//                if (poseStore.leftWrist.y > 290 || poseStore.leftWrist.y < -190 || poseStore.leftWrist.x > 560 || poseStore.leftWrist.x < -170){
+                if (poseStore.leftWrist.x > 560 || poseStore.leftWrist.x < -170){
+                    objects.forEach(function(object) {
+//                     object.rotation.x += 0.003;
+//                    object.rotation.z += 0.003;
+                        object.rotation.x += 0.003;
+                        
+                    object.rotation.z += 0.003;
+                    
+                    
+                })
+                      
+                
+                } else {
+                    
+                    objects.forEach(function(object) {
+                    object.rotation.x = lerp(object.rotation.x,(-(( poseStore.leftWrist.y / 780 ) * 3 - 1)),0.006);
+                    object.rotation.z = lerp(object.rotation.z,(-(( poseStore.leftWrist.x / 780 ) * 4 - 1)),0.006);
+                    
+                    
+                })
+                    
+                }
+                
+                // setting the flower to automaticly rotate of the wrist positions leave to the left or right.
+                
+                 if (poseStore.leftWrist.x > 560 || poseStore.leftWrist.x < -170){
+                    objects2.forEach(function(object2) {
+//                     object.rotation.x += 0.003;
+//                    object.rotation.z += 0.003;
+                        object2.rotation.x += 0.003;
+                        
+                    object2.rotation.z += 0.003;
+                    
+                })   
+                
+                } else {
+                    
+                    objects2.forEach(function(object2) {
+                    object2.rotation.x = lerp(object2.rotation.x,(-(( poseStore.leftWrist.y / 780 ) * 3 - 1)),0.006);
+                    object2.rotation.z = lerp(object2.rotation.z,(-(( poseStore.leftWrist.x / 780 ) * 4 - 1)),0.006);      
+                    
+                })
+                    
+                }
+                
+                if (poseStore.leftWrist.x > 560 || poseStore.leftWrist.x < -170){
+                    objects3.forEach(function(object3) {
+//                     object.rotation.x += 0.003;
+//                    object.rotation.z += 0.003;
+                        object3.rotation.x += 0.003;
+                        
+                    object3.rotation.z += 0.003;
+                                 
+                })
+                   
+                        
+                } else {
+                    
+                    objects3.forEach(function(object3) {
+                    object3.rotation.x = lerp(object3.rotation.x,(-(( poseStore.leftWrist.y / 780 ) * 3 - 1)),0.006);
+                    object3.rotation.z = lerp(object3.rotation.z,(-(( poseStore.leftWrist.x / 780 ) * 4 - 1)),0.006);       
+                    
+                })
+                    
+                }
+                
+                
+                //animation mixer calling and running the animations
+                
+//				if(mixer)
+//                mixer.update(clock.getDelta());
+                mixers3.forEach(function(mixer3) {
+                    mixer3.update(deltaTime);
+                })
+                
+                mixers2.forEach(function(mixer2) {
+                    mixer2.update(deltaTime);
+                })
+                
+                mixers.forEach(function(mixer) {
+                    mixer.update(deltaTime);
+                })
+                            
+                
+                TWEEN.update();
+
+                
+                renderer.render( scene, camera );
+                
+                
+			}
+               
+            
+
+			animate();
+            
+            
+
+		</script>
+	</body>
+</html>
